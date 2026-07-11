@@ -93,3 +93,95 @@ ui <- dashboardPage(
                 )
               )
       ),
+
+        # --- TAB 3: VISUALISASI DATA ---
+      tabItem(tabName = "visualisasi",
+              fluidRow(
+                box(
+                  title = "Visualisasi Distribusi Data (Boxplot)", status = "primary", solidHeader = TRUE, width = 12,
+                  p("Grafik di bawah ini menunjukkan distribusi variabel numerik (Y) berdasarkan masing-masing variabel faktor (X) yang Anda pilih secara terpisah agar terlihat jelas."),
+                  uiOutput("dynamic_plots") 
+                )
+              )
+      ),
+      
+      # --- TAB 4: UJI ANOVA ---
+      tabItem(tabName = "anova",
+              fluidRow(
+                box(
+                  title = "Hasil Keluaran Uji ANOVA", status = "danger", solidHeader = TRUE, width = 6,
+                  verbatimTextOutput("anova_out")
+                ),
+                box(
+                  title = "Interpretasi Hasil ANOVA", status = "success", solidHeader = TRUE, width = 6,
+                  htmlOutput("interpretasi_anova")
+                )
+              )
+      ),
+      
+      # --- TAB 5: UJI TUKEY HSD ---
+      tabItem(tabName = "tukey",
+              fluidRow(
+                box(
+                  title = "Hasil Keluaran Uji Tukey HSD", status = "warning", solidHeader = TRUE, width = 12,
+                  verbatimTextOutput("tukey_out")
+                )
+              ),
+              fluidRow(
+                box(
+                  title = "Interpretasi Pasangan Signifikan (Tukey)", status = "success", solidHeader = TRUE, width = 12,
+                  htmlOutput("interpretasi_tukey")
+                )
+              )
+      )
+    )
+  )
+)
+
+# ==========================================
+# 2. Server
+# ==========================================
+server <- function(input, output, session) {
+#Ini buat nanti input data
+  # Membaca Data dari File
+  data_input <- reactive({
+    req(input$file1)
+    tryCatch({
+      read.csv(input$file1$datapath, header = input$header, sep = input$sep, quote = input$quote)
+    }, error = function(e) {
+      stop(safeError(e))
+    })
+  })
+  # Menampilkan Pratinjau Tabel
+  output$contents <- renderTable({
+    df <- data_input()
+    req(df)
+    if(input$disp == "Head") return(head(df)) else return(df)
+  })
+  # Menu Dropdown Variabel
+  output$select_vars <- renderUI({
+    req(df <- data_input())
+    tagList(
+      selectInput("var_x", "Variabel Faktor (Kategori / X):", choices = names(df), multiple = TRUE),
+      selectInput("var_y", "Variabel Respon (Numerik / Y):", choices = names(df))
+    )
+  })
+  # Persiapan Data (Konversi Tipe Data)
+  model_data <- reactive({
+    req(input$var_x, input$var_y)
+    df <- data_input()
+    req(df)
+    
+    kolom_pilihan <- c(input$var_x, input$var_y)
+    req(all(kolom_pilihan %in% names(df))) 
+    
+    sub_df <- df[, kolom_pilihan, drop = FALSE]
+    sub_df <- na.omit(sub_df)
+    
+    for(kolom in input$var_x) {
+      sub_df[[kolom]] <- as.factor(sub_df[[kolom]])
+    }
+    sub_df[[input$var_y]] <- as.numeric(sub_df[[input$var_y]])
+    
+    return(sub_df)
+  })
