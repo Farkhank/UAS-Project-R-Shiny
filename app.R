@@ -327,3 +327,6 @@ server <- function(input, output, session) {
     HTML(hasil_teks)
   })
 }
+
+# 3. Jalankan Aplikasi
+shinyApp(ui, server)
