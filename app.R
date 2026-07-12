@@ -137,3 +137,47 @@ ui <- dashboardPage(
     )
   )
 )
+
+# ==========================================
+# 2. Server
+# ==========================================
+server <- function(input, output, session) {
+#Ini buat nanti input data
+  # Membaca Data dari File
+  data_input <- reactive({
+    req(input$file1)
+    tryCatch({
+      read.csv(input$file1$datapath, header = input$header, sep = input$sep, quote = input$quote)
+    }, error = function(e) {
+      stop(safeError(e))
+    })
+  })
+  # Menampilkan Pratinjau Tabel
+  output$contents <- renderTable({
+    df <- data_input()
+    req(df)
+    if(input$disp == "Head") return(head(df)) else return(df)
+  })
+  # Menu Dropdown Variabel
+  output$select_vars <- renderUI({
+    req(df <- data_input())
+    tagList(
+      selectInput("var_x", "Variabel Faktor (Kategori / X):", choices = names(df), multiple = TRUE),
+      selectInput("var_y", "Variabel Respon (Numerik / Y):", choices = names(df))
+    )
+  })
+  # Persiapan Data (Konversi Tipe Data)
+  model_data <- reactive({
+    req(input$var_x, input$var_y)
+    df <- data_input()
+    req(df)
+    kolom_pilihan <- c(input$var_x, input$var_y)
+    req(all(kolom_pilihan %in% names(df))) 
+    sub_df <- df[, kolom_pilihan, drop = FALSE]
+    sub_df <- na.omit(sub_df)
+    for(kolom in input$var_x) {
+      sub_df[[kolom]] <- as.factor(sub_df[[kolom]])
+    }
+    sub_df[[input$var_y]] <- as.numeric(sub_df[[input$var_y]])
+    return(sub_df)
+  })
