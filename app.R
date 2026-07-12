@@ -94,3 +94,46 @@ ui <- dashboardPage(
               )
       ),
       
+      # TAB 3: VISUALISASI DATA
+      tabItem(tabName = "visualisasi",
+              fluidRow(
+                box(
+                  title = "Visualisasi Distribusi Data (Boxplot)", status = "primary", solidHeader = TRUE, width = 12,
+                  p("Grafik di bawah ini menunjukkan distribusi variabel numerik (Y) berdasarkan masing-masing variabel faktor (X) yang Anda pilih secara terpisah agar terlihat jelas."),
+                  uiOutput("dynamic_plots") 
+                )
+              )
+      ),
+      
+      # TAB 4: UJI ANOVA
+      tabItem(tabName = "anova",
+              fluidRow(
+                box(
+                  title = "Hasil Keluaran Uji ANOVA", status = "danger", solidHeader = TRUE, width = 6,
+                  verbatimTextOutput("anova_out")
+                ),
+                box(
+                  title = "Interpretasi Hasil ANOVA", status = "success", solidHeader = TRUE, width = 6,
+                  htmlOutput("interpretasi_anova")
+                )
+              )
+      ),
+      
+      # TAB 5: UJI TUKEY HSD
+      tabItem(tabName = "tukey",
+              fluidRow(
+                box(
+                  title = "Hasil Keluaran Uji Tukey HSD", status = "warning", solidHeader = TRUE, width = 12,
+                  verbatimTextOutput("tukey_out")
+                )
+              ),
+              fluidRow(
+                box(
+                  title = "Interpretasi Pasangan Signifikan (Tukey)", status = "success", solidHeader = TRUE, width = 12,
+                  htmlOutput("interpretasi_tukey")
+                )
+              )
+      )
+    )
+  )
+)
