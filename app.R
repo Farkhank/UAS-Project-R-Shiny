@@ -181,3 +181,54 @@ server <- function(input, output, session) {
     sub_df[[input$var_y]] <- as.numeric(sub_df[[input$var_y]])
     return(sub_df)
   })
+
+ # Pembuatan Model ANOVA
+  anova_model <- reactive({
+    req(input$var_x, input$var_y)
+    mdf <- model_data()
+    req(mdf)
+    # Deteksi pilihan model interaksi atau tidak
+    pemisah <- ifelse(input$model_type == "additive", " + ", " * ")
+    x_vars_kombinasi <- paste(input$var_x, collapse = pemisah)
+    rumus_anova <- paste(input$var_y, "~", x_vars_kombinasi)
+    tryCatch({
+      aov(as.formula(rumus_anova), data = mdf)
+    }, error = function(e) {
+      return(NULL)
+    })
+  })
+  #OUTPUT & INTERPRETASI ANOVA
+  output$anova_out <- renderPrint({
+    model <- anova_model()
+    if(is.null(model)) {
+      cat("Model ANOVA tidak dapat diproses.\nPastikan tipe data benar dan sampel cukup untuk variabel yang dipilih.")
+    } else {
+      summary(model)
+    }
+  })
+  output$interpretasi_anova <- renderUI({
+    model <- anova_model()
+    if(is.null(model)) {
+      return(HTML("<div style='color:red;'><b>Gagal memproses interpretasi.</b> Silakan periksa kembali konfigurasi variabel Anda.</div>"))
+    }
+    anova_summary <- summary(model)
+    nama_baris <- rownames(anova_summary[[1]])
+    
+    hasil_teks <- "<div style='font-size: 15px; line-height: 1.8;'>"
+    hasil_teks <- paste0(hasil_teks, "Berdasarkan pengujian <b>ANOVA</b> di samping, diperoleh keputusan:<br><br><ul>")
+    
+    for(i in 1:(length(nama_baris)-1)) {
+      p_value <- anova_summary[[1]][["Pr(>F)"]][i]
+      nama_var <- trimws(nama_baris[i])
+      if(!is.na(p_value)) {
+        if (p_value < 0.05) {
+          keputusan <- paste0("<span style='color: #27ae60; font-weight: bold;'>SIGNIFIKAN</span> (p < 0.05). Artinya, terbukti secara nyata terdapat perbedaan rata-rata variabel <b>", input$var_y, "</b> pada faktor <b>", nama_var, "</b>.")
+        } else {
+          keputusan <- paste0("<span style='color: #e74c3c; font-weight: bold;'>TIDAK SIGNIFIKAN</span> (p &ge; 0.05). Artinya, tidak terdapat perbedaan rata-rata <b>", input$var_y, "</b> yang nyata pada faktor <b>", nama_var, "</b>.")
+        }
+        hasil_teks <- paste0(hasil_teks, "<li>Faktor <b>", nama_var, "</b> (P-Value: ", format.pval(p_value, digits = 4, eps = 0.05), ") &rarr; ", keputusan, "</li><br>")
+      }
+    }
+    hasil_teks <- paste0(hasil_teks, "</ul></div>")
+    HTML(hasil_teks)
+  })
