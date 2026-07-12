@@ -268,4 +268,62 @@ server <- function(input, output, session) {
       })
     }
   })
-  
+  #Ini buat uji Tukey
+  # --- Membuat Model Tukey ---
+  tukey_data <- reactive({
+    req(input$var_x, input$var_y)
+    mdf <- model_data()
+    req(mdf)
+    # Membuat ulang model di dalam blok reaktif Tukey untuk mengatasi isu scoping
+    pemisah <- ifelse(input$model_type == "additive", " + ", " * ")
+    x_vars_kombinasi <- paste(input$var_x, collapse = pemisah)
+    rumus_tukey <- paste(input$var_y, "~", x_vars_kombinasi)
+    tryCatch({
+      model_tukey <- aov(as.formula(rumus_tukey), data = mdf)
+      TukeyHSD(model_tukey)
+    }, error = function(e) {
+      return(e$message) # Menangkap error asli dari R
+    })
+  })
+  output$tukey_out <- renderPrint({
+    t_data <- tukey_data()
+    if(is.character(t_data)) {
+      cat("GAGAL MEMPROSES UJI TUKEY.\n")
+      cat("Alasan dari sistem R:\n", t_data, "\n\n")
+      cat("Solusi:\n1. Pastikan variabel X yang dipilih adalah data kategori (bukan angka unik semua).\n2. Jika menggunakan lebih dari 1 variabel X, coba ganti tipe model ke 'Efek Utama Saja (+)'.")
+    } else {
+      print(t_data)
+    }
+  })
+  output$interpretasi_tukey <- renderUI({
+    t_data <- tukey_data()
+    
+    if(is.character(t_data) || is.null(t_data)) {
+      return(HTML("<div style='color:#c0392b; background-color:#f9ebea; padding:15px; border-radius:5px;'><b>Tukey HSD Terhenti:</b> Tidak dapat memproses interpretasi karena terjadi kesalahan pada perhitungan struktur data Anda. Silakan cek tabel uji di atas untuk melihat penyebabnya.</div>"))
+    }
+    
+    hasil_teks <- "<div style='font-size: 15px; line-height: 1.6;'>"
+    hasil_teks <- paste0(hasil_teks, "<p>Uji Lanjut Tukey HSD mengevaluasi perbandingan berpasangan. Pasangan kelompok dinyatakan berbeda secara signifikan apabila nilai <code>p adj</code> < 0.05.</p>")
+    
+    for(faktor in names(t_data)) {
+      hasil_teks <- paste0(hasil_teks, "<h4 style='color: #2980b9; margin-top: 20px; border-bottom: 2px solid #2980b9; padding-bottom: 5px;'><b>Faktor/Interaksi: ", faktor, "</b></h4>")
+      
+      tabel_faktor <- as.data.frame(t_data[[faktor]])
+      # Ekstraksi kebal missing value (NA)
+      pasangan_signifikan <- rownames(tabel_faktor)[which(tabel_faktor[["p adj"]] < 0.05)]
+      
+      if(length(pasangan_signifikan) > 0) {
+        hasil_teks <- paste0(hasil_teks, "<p>Berikut adalah pasangan kelompok yang memiliki perbedaan nilai rata-rata secara <b>signifikan</b>:</p><ul>")
+        for(psg in pasangan_signifikan) {
+          p_val <- tabel_faktor[psg, "p adj"]
+          hasil_teks <- paste0(hasil_teks, "<li>Pasangan kelompok <b>", psg, "</b> (Nilai p-adj: ", format.pval(p_val, digits = 4, eps = 0.001), ")</li>")
+        }
+        hasil_teks <- paste0(hasil_teks, "</ul>")
+      } else {
+        hasil_teks <- paste0(hasil_teks, "<p style='color: #7f8c8d; font-style: italic;'>Tidak ada satu pun pasangan kelompok yang memiliki perbedaan rata-rata signifikan pada faktor ini.</p>")
+      }
+    }
+    hasil_teks <- paste0(hasil_teks, "</div>")
+    HTML(hasil_teks)
+  })
+}
